@@ -1,0 +1,203 @@
+/**
+ * Requirements addressed:
+ * - `push` selects a subset of `ctx.dotenv` keys using `ctx.dotenvProvenance`,
+ *   matching only the effective provenance entry (last entry for a key).
+ * - `push` supports repeatable `--from <selector...>` with grammar:
+ *   - file:<scope>:<privacy> (scope: global|env|*; privacy: public|private|*)
+ *   - config:<configScope>:<scope>:<privacy> (configScope: packaged|project|*)
+ *   - dynamic:<dynamicSource> (dynamicSource: config|programmatic|dynamicPath|*)
+ *   - vars
+ * - `pull` uses `--to <scope>:<privacy>` (scope: global|env; privacy: public|private).
+ * - No path-based selector matching is supported.
+ * - Provenance entry shapes are sourced from get-dotenv’s public ctx types.
+ */
+
+import type { ProcessEnv } from '@karmaniverous/get-dotenv';
+import type { GetDotenvCliCtx } from '@karmaniverous/get-dotenv/cliHost';
+
+export type DotenvProvenance = GetDotenvCliCtx['dotenvProvenance'];
+export type DotenvProvenanceAnyEntry = DotenvProvenance[string][number];
+export type DotenvProvenanceFileEntry = Extract<
+  DotenvProvenanceAnyEntry,
+  { kind: 'file' }
+>;
+export type DotenvProvenanceConfigEntry = Extract<
+  DotenvProvenanceAnyEntry,
+  { kind: 'config' }
+>;
+export type DotenvProvenanceVarsEntry = Extract<
+  DotenvProvenanceAnyEntry,
+  { kind: 'vars' }
+>;
+export type DotenvProvenanceDynamicEntry = Extract<
+  DotenvProvenanceAnyEntry,
+  { kind: 'dynamic' }
+>;
+
+export type FromSelector =
+  | {
+      kind: 'file';
+      scope: 'global' | 'env' | '*';
+      privacy: 'public' | 'private' | '*';
+    }
+  | {
+      kind: 'config';
+      configScope: 'packaged' | 'project' | '*';
+      scope: 'global' | 'env' | '*';
+      privacy: 'public' | 'private' | '*';
+    }
+  | {
+      kind: 'dynamic';
+      dynamicSource: 'config' | 'programmatic' | 'dynamicPath' | '*';
+    }
+  | { kind: 'vars' };
+
+export type ToSelector = {
+  scope: 'global' | 'env';
+  privacy: 'public' | 'private';
+};
+
+const isOneOf = <T extends string>(v: string, allowed: readonly T[]): v is T =>
+  (allowed as readonly string[]).includes(v);
+
+const parseParts = (raw: string): string[] =>
+  raw
+    .split(':')
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+export const parseFromSelector = (raw: string): FromSelector => {
+  const parts = parseParts(raw);
+  const kind = parts[0];
+
+  if (parts.length === 1 && kind === 'vars') return { kind: 'vars' };
+
+  if (kind === 'file') {
+    if (parts.length !== 3) throw new Error(`Invalid --from selector: ${raw}`);
+    const scope = parts[1];
+    const privacy = parts[2];
+    if (
+      !isOneOf(scope, ['global', 'env', '*'] as const) ||
+      !isOneOf(privacy, ['public', 'private', '*'] as const)
+    ) {
+      throw new Error(`Invalid --from selector: ${raw}`);
+    }
+    return { kind: 'file', scope, privacy };
+  }
+
+  if (kind === 'config') {
+    if (parts.length !== 4) throw new Error(`Invalid --from selector: ${raw}`);
+    const configScope = parts[1];
+    const scope = parts[2];
+    const privacy = parts[3];
+    if (
+      !isOneOf(configScope, ['packaged', 'project', '*'] as const) ||
+      !isOneOf(scope, ['global', 'env', '*'] as const) ||
+      !isOneOf(privacy, ['public', 'private', '*'] as const)
+    ) {
+      throw new Error(`Invalid --from selector: ${raw}`);
+    }
+    return { kind: 'config', configScope, scope, privacy };
+  }
+
+  if (kind === 'dynamic') {
+    if (parts.length !== 2) throw new Error(`Invalid --from selector: ${raw}`);
+    const dynamicSource = parts[1];
+    if (
+      !isOneOf(dynamicSource, [
+        'config',
+        'programmatic',
+        'dynamicPath',
+        '*',
+      ] as const)
+    ) {
+      throw new Error(`Invalid --from selector: ${raw}`);
+    }
+    return { kind: 'dynamic', dynamicSource };
+  }
+
+  throw new Error(`Invalid --from selector: ${raw}`);
+};
+
+export const parseToSelector = (raw: string): ToSelector => {
+  const parts = parseParts(raw);
+  if (parts.length !== 2) throw new Error(`Invalid --to selector: ${raw}`);
+  const scope = parts[0];
+  const privacy = parts[1];
+  if (
+    !isOneOf(scope, ['global', 'env'] as const) ||
+    !isOneOf(privacy, ['public', 'private'] as const)
+  ) {
+    throw new Error(`Invalid --to selector: ${raw}`);
+  }
+  return { scope, privacy };
+};
+
+const wildcardMatch = (v: string, sel: string): boolean =>
+  sel === '*' || v === sel;
+
+export const getEffectiveProvenanceEntry = (
+  entries: DotenvProvenanceAnyEntry[] | undefined,
+): DotenvProvenanceAnyEntry | undefined =>
+  entries && entries.length ? entries[entries.length - 1] : undefined;
+
+export const matchesFromSelector = (
+  entry: DotenvProvenanceAnyEntry,
+  sel: FromSelector,
+): boolean => {
+  switch (entry.kind) {
+    case 'vars':
+      return sel.kind === 'vars';
+    case 'dynamic':
+      return (
+        sel.kind === 'dynamic' &&
+        wildcardMatch(entry.dynamicSource, sel.dynamicSource)
+      );
+    case 'file':
+      return (
+        sel.kind === 'file' &&
+        wildcardMatch(entry.scope, sel.scope) &&
+        wildcardMatch(entry.privacy, sel.privacy)
+      );
+    case 'config':
+      return (
+        sel.kind === 'config' &&
+        wildcardMatch(entry.configScope, sel.configScope) &&
+        wildcardMatch(entry.scope, sel.scope) &&
+        wildcardMatch(entry.privacy, sel.privacy)
+      );
+  }
+};
+
+/**
+ * Select env values for a secret payload using provenance selectors.
+ *
+ * Notes:
+ * - Iterates keys from provenance (not from dotenv), so keys lacking provenance
+ *   are excluded by default.
+ * - Uses only the effective entry (last entry) for matching.
+ * - Excludes keys whose effective value is undefined, or whose effective entry
+ *   has `op: 'unset'`.
+ */
+export const selectEnvByProvenance = (
+  dotenv: ProcessEnv,
+  provenance: DotenvProvenance,
+  selectors: FromSelector[],
+): ProcessEnv => {
+  const out: ProcessEnv = {};
+
+  for (const [key, entries] of Object.entries(provenance)) {
+    const value = dotenv[key];
+    if (typeof value === 'undefined') continue;
+
+    const effective = getEffectiveProvenanceEntry(entries);
+    if (!effective) continue;
+    if (effective.op === 'unset') continue;
+
+    if (selectors.some((s) => matchesFromSelector(effective, s))) {
+      out[key] = value;
+    }
+  }
+
+  return out;
+};
