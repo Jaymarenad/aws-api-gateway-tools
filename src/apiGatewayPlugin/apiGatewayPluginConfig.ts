@@ -6,6 +6,11 @@
 
 import { z } from '@karmaniverous/get-dotenv/cliHost';
 
+/**
+ * Zod schema for the `plugins['aws/api-gateway']` configuration slice.
+ *
+ * CLI flags override config defaults.
+ */
 export const apiGatewayPluginConfigSchema = z.object({
   /** Default REST API id (supports $VAR expansion at action time). */
   apiId: z.string().optional(),
@@ -59,6 +64,9 @@ export const apiGatewayPluginConfigSchema = z.object({
     .optional(),
 });
 
+/**
+ * Validated config shape for the `aws api-gateway` plugin instance.
+ */
 export type ApiGatewayPluginConfig = z.output<
   typeof apiGatewayPluginConfigSchema
 >;

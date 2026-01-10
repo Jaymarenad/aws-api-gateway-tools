@@ -10,6 +10,7 @@
  * - Export the get-dotenv `apiGatewayPlugin` for mounting under `aws`.
  */
 
+export type { FlushStageCacheByNameResult } from './apiGateway/AwsApiGatewayTools';
 export {
   AwsApiGatewayTools,
   type AwsApiGatewayToolsOptions,
@@ -20,4 +21,7 @@ export type {
   RestApiSummary,
 } from './apiGateway/ports/apiGatewayPort';
 export { apiGatewayPlugin } from './apiGatewayPlugin/apiGatewayPlugin';
-export type { ApiGatewayPluginConfig } from './apiGatewayPlugin/apiGatewayPluginConfig';
+export {
+  type ApiGatewayPluginConfig,
+  apiGatewayPluginConfigSchema,
+} from './apiGatewayPlugin/apiGatewayPluginConfig';

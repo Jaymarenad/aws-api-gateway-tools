@@ -53,6 +53,9 @@ export type AwsApiGatewayToolsOptions = {
   xray?: XrayMode;
 };
 
+/**
+ * Result of {@link AwsApiGatewayTools.flushStageCacheByName}.
+ */
 export type FlushStageCacheByNameResult = {
   /**
    * The resolved REST API id used for the flush operation.
