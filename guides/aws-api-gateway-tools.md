@@ -1,12 +1,12 @@
 ---
-title: AwsSecretsManagerTools
+title: AwsApiGatewayTools
 ---
 
-# AwsSecretsManagerTools (programmatic API)
+# AwsApiGatewayTools (programmatic API)
 
-This guide explains how to use `AwsSecretsManagerTools` as a small, opinionated wrapper around AWS Secrets Manager for “env-map” secrets (JSON object maps of environment variables).
+This guide explains how to use `AwsApiGatewayTools` as a small, opinionated wrapper around AWS API Gateway (REST APIs).
 
-If you’re looking for the CLI or plugin behavior instead, see the [aws secrets plugin guide](./secrets-plugin.md).
+If you’re looking for the CLI or plugin behavior instead, see the [aws api-gateway plugin guide](./api-gateway-plugin.md).
 
 ## Install and import
 
@@ -17,35 +17,17 @@ npm i @karmaniverous/aws-api-gateway-tools
 This package is ESM-only (Node >= 20).
 
 ```ts
-import { AwsSecretsManagerTools } from '@karmaniverous/aws-api-gateway-tools';
+import { AwsApiGatewayTools } from '@karmaniverous/aws-api-gateway-tools';
 ```
 
-## Mental model: “env-map” secrets
-
-This library treats `SecretString` as JSON with the following shape:
-
-```json
-{ "KEY": "value", "OPTIONAL": null }
-```
-
-- Values must be `string` or `null`.
-- When reading, `null` is decoded as `undefined` (because JSON cannot represent `undefined`).
-- Binary secrets (`SecretBinary`) are not supported by this wrapper.
-
-The canonical payload type used by this wrapper is get-dotenv’s `ProcessEnv`:
-
-```ts
-import type { ProcessEnv } from '@karmaniverous/get-dotenv';
-```
-
-## Initialize once: `new AwsSecretsManagerTools(...)`
+## Initialize once: `new AwsApiGatewayTools(...)`
 
 Create a configured instance (recommended usage):
 
 ```ts
-import { AwsSecretsManagerTools } from '@karmaniverous/aws-api-gateway-tools';
+import { AwsApiGatewayTools } from '@karmaniverous/aws-api-gateway-tools';
 
-const tools = new AwsSecretsManagerTools({
+const tools = new AwsApiGatewayTools({
   clientConfig: {
     region: 'us-east-1',
     logger: console,
@@ -56,10 +38,10 @@ const tools = new AwsSecretsManagerTools({
 
 ### Constructor options
 
-`new AwsSecretsManagerTools({ ... })` accepts:
+`new AwsApiGatewayTools({ ... })` accepts:
 
-- `clientConfig?: SecretsManagerClientConfig`
-  - Any AWS SDK v3 Secrets Manager client configuration (region, credentials, retry options, etc.).
+- `clientConfig?: APIGatewayClientConfig`
+  - Any AWS SDK v3 API Gateway client configuration (region, credentials, retry options, etc.).
   - If `clientConfig.logger` is provided, it must implement `debug`, `info`, `warn`, and `error` (the unified get-dotenv `Logger` contract). The wrapper validates this contract up front (it does not polyfill missing methods).
 - `xray?: 'auto' | 'on' | 'off'`
   - `'auto'` (default): enable only when `AWS_XRAY_DAEMON_ADDRESS` is set.
@@ -70,100 +52,59 @@ const tools = new AwsSecretsManagerTools({
 
 The instance exposes a few helpful properties:
 
-- `tools.client`: the effective `SecretsManagerClient` (captured/instrumented when X-Ray is enabled)
+- `tools.client`: the effective `APIGatewayClient` (captured/instrumented when X-Ray is enabled)
 - `tools.clientConfig`: the effective config used to construct the base client
 - `tools.logger`: the validated console-like logger
 - `tools.xray`: `{ mode, enabled, daemonAddress? }` reflecting the effective runtime decision
 
 ## Escape hatch: use the raw AWS SDK client
 
-When you need AWS Secrets Manager APIs that aren’t wrapped by this package, use `tools.client` directly and import AWS SDK command classes as needed:
+When you need API Gateway APIs that aren’t wrapped by this package, use `tools.client` directly and import AWS SDK command classes as needed:
 
 ```ts
-import { ListSecretsCommand } from '@aws-sdk/client-secrets-manager';
-import { AwsSecretsManagerTools } from '@karmaniverous/aws-api-gateway-tools';
+import { GetRestApisCommand } from '@aws-sdk/client-api-gateway';
+import { AwsApiGatewayTools } from '@karmaniverous/aws-api-gateway-tools';
 
-const tools = new AwsSecretsManagerTools({
+const tools = new AwsApiGatewayTools({
   clientConfig: { region: 'us-east-1', logger: console },
 });
 
-const res = await tools.client.send(new ListSecretsCommand({}));
-console.log(res.SecretList?.length ?? 0);
+const res = await tools.client.send(new GetRestApisCommand({ limit: 25 }));
+console.log(res.items?.length ?? 0);
 ```
 
-## Convenience methods (env-map secrets)
+## Convenience methods
 
-### Read: `readEnvSecret(...)`
+### Flush stage cache: `flushStageCache(...)`
 
-Read and decode an env-map secret:
+Flush a REST API stage cache by id:
 
 ```ts
-const env = await tools.readEnvSecret({ secretId: 'my-app/dev' });
+await tools.flushStageCache({ restApiId: 'abc123', stageName: 'dev' });
 ```
 
-- Accepts `{ secretId, versionId? }`
-- Throws if:
-  - `SecretString` is missing (binary secrets are not supported)
-  - `SecretString` is invalid JSON
-  - JSON is not an object map
-  - any value is not `string | null`
+### Flush stage cache by name: `flushStageCacheByName(...)`
 
-### Update: `updateEnvSecret(...)`
-
-Write a new secret version for an existing secret:
+Resolve REST API id by name and flush:
 
 ```ts
-await tools.updateEnvSecret({
-  secretId: 'my-app/dev',
-  value: { API_URL: 'https://example.com' },
+const { apiId } = await tools.flushStageCacheByName({
+  apiName: 'my-api',
+  stageName: 'dev',
 });
+console.log('flushed', apiId);
 ```
 
-Notes:
+### Retrieve API key values: `getApiKeyValuesByNames(...)`
 
-- This does not create the secret if it doesn’t exist.
-- `versionId` (optional) is forwarded as `ClientRequestToken` for idempotency.
-
-### Create: `createEnvSecret(...)`
-
-Create a new secret with an env-map payload:
+Retrieve API key values by key names (strict: missing/ambiguous keys throw):
 
 ```ts
-await tools.createEnvSecret({
-  secretId: 'my-app/dev',
-  value: { API_URL: 'https://example.com' },
-  description: 'my-app dev env',
+const values = await tools.getApiKeyValuesByNames({
+  keyNames: ['my-api-key-a', 'my-api-key-b'],
 });
+console.log(values.join(', '));
 ```
-
-### Upsert: `upsertEnvSecret(...)`
-
-Update the secret if it exists, otherwise create it:
-
-```ts
-const mode = await tools.upsertEnvSecret({
-  secretId: 'my-app/dev',
-  value: { API_URL: 'https://example.com' },
-});
-// mode is 'updated' or 'created'
-```
-
-Behavior note:
-
-- This only creates on `ResourceNotFoundException`. Other AWS errors are re-thrown.
-
-### Delete: `deleteSecret(...)`
-
-Delete a secret (recoverable by default):
-
-```ts
-await tools.deleteSecret({ secretId: 'my-app/dev' });
-```
-
-Options:
-
-- `{ recoveryWindowInDays?: number }` to set a specific recovery window
-- `{ forceDeleteWithoutRecovery?: boolean }` to permanently delete (dangerous)
 
 ## AWS X-Ray capture (optional)
 
@@ -172,9 +113,9 @@ X-Ray capture is guarded:
 - Install the optional peer dependency if you want capture:
   - `aws-xray-sdk`
 - In `'auto'` mode, capture is enabled only when `AWS_XRAY_DAEMON_ADDRESS` is set.
-- In `'auto'` mode, if the daemon address is set but `aws-xray-sdk` is not installed, construction throws with a clear message.
+- In `'auto'` mode, if the daemon address is set but `aws-xray-sdk` is not installed, construction throws with a clear error message.
 
 ## Next steps
 
-- For the CLI/plugin workflow (`aws secrets pull|push|delete`), see the [aws secrets plugin guide](./secrets-plugin.md).
+- For the CLI/plugin workflow (`aws api-gateway flush-cache|pull-keys`), see the [aws api-gateway plugin guide](./api-gateway-plugin.md).
 - For a short package overview, see the [README](../README.md).

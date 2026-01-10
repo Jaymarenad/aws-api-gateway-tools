@@ -16,7 +16,7 @@ This package provides:
 ## Documentation
 
 - Learn the programmatic API: [AwsSecretsManagerTools guide](guides/aws-api-gateway-tools.md)
-- Learn the CLI and plugin behavior: [aws secrets plugin guide](guides/secrets-plugin.md)
+- Learn the CLI and plugin behavior: [aws api-gateway plugin guide](guides/api-gateway-plugin.md)
 - Browse the generated API reference: [TypeDoc site](https://docs.karmanivero.us/aws-api-gateway-tools)
 
 ## Install
@@ -95,7 +95,7 @@ If you embed the plugin in your own get-dotenv host (or use the shipped CLI), yo
 }
 ```
 
-See the [secrets plugin guide](guides/secrets-plugin.md) for `--from` / `--to` selector details and all supported config keys.
+See the [api-gateway plugin guide](guides/api-gateway-plugin.md) for supported config keys and CLI behavior.
 
 ---
 

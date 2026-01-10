@@ -42,7 +42,7 @@ const main = async (): Promise<void> => {
   const keyNames = getApiKeyNames(smokeEnv);
 
   console.log(
-    `smoke:flags: profile=${profile} stage=${stageName} apiId=${apiId ?? ''} apiName=${apiName ?? ''} keys=${keyNames.length}`,
+    `smoke:flags: profile=${profile} stage=${stageName} apiId=${apiId ?? ''} apiName=${apiName ?? ''} keys=${String(keyNames.length)}`,
   );
 
   await assertSmokeFixturesPresent({ repoRoot });

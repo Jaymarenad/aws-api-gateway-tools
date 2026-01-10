@@ -51,4 +51,4 @@
 - Refactored AwsSecretsManagerTools to use a public constructor (removed async init) now that aws-xray-tools capture is synchronous.
 - Documentation sync pass: align constructor/X-Ray wording and correct `ProcessEnv` import guidance.
 - Converted repo from Secrets Manager to API Gateway tools/plugin; updated docs and smoke tests accordingly.
-- Fixed residual secrets refs and rewired api-gateway plugin + smoke entrypoints.
+- Fixed residual secrets refs and rewired api-gateway plugin + smoke entrypoints.- Fix lint/docs warnings; remove smoke aliases and stale links.

@@ -106,7 +106,7 @@ const main = async (): Promise<void> => {
   const keyNames = getApiKeyNames(smokeEnv);
 
   console.log(
-    `smoke:overlay: stage=${stageName} apiId=${apiId ?? ''} apiName=${apiName ?? ''} keys=${keyNames.length}`,
+    `smoke:overlay: stage=${stageName} apiId=${apiId ?? ''} apiName=${apiName ?? ''} keys=${String(keyNames.length)}`,
   );
 
   await assertSmokeFixturesPresent({ repoRoot });

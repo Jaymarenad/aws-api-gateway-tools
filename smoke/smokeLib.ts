@@ -153,7 +153,7 @@ export const loadSmokeEnv = async (repoRoot: string): Promise<ProcessEnv> => {
 export const shouldKeepArtifacts = (smokeEnv: ProcessEnv): boolean =>
   smokeEnv.SMOKE_KEEP_ARTIFACTS === '1';
 
-export const runAwsSecretsManagerToolsCli = async ({
+export const runAwsApiGatewayToolsCli = async ({
   repoRoot,
   argv,
   env,
@@ -193,9 +193,6 @@ export const shouldRunApiGatewaySmoke = (smokeEnv: ProcessEnv): boolean =>
 
 export const SMOKE_AWS_API_GATEWAY_FIXTURES_DIR_REL =
   'smoke/fixtures/aws-api-gateway';
-// Back-compat: legacy smoke scripts still reference these exports.
-export const SMOKE_AWS_SECRETS_FIXTURES_DIR_REL =
-  SMOKE_AWS_API_GATEWAY_FIXTURES_DIR_REL;
 export const SMOKE_OVERLAY_CONFIG_FIXTURE_REL =
   'smoke/fixtures/getdotenv.config.overlay.json';
 export const SMOKE_TEMPLATE_SENTINEL = '# smoke template comment: keep me';
@@ -215,9 +212,6 @@ export const getAwsApiGatewayFixturePaths = ({
   const localAbs = path.join(dirAbs, '.env.local');
   return { envAbs, templateAbs, localAbs };
 };
-
-// Back-compat: legacy smoke scripts still reference this helper name.
-export const getAwsSecretsFixturePaths = getAwsApiGatewayFixturePaths;
 
 const parseDotenvText = (text: string): Record<string, string> => {
   const out: Record<string, string> = {};
@@ -316,6 +310,3 @@ export const logCommandOk = (res: RunResult, label: string): void => {
   if (res.stdout.trim()) console.log(`--- stdout ---\n${clip(res.stdout)}`);
   if (res.stderr.trim()) console.log(`--- stderr ---\n${clip(res.stderr)}`);
 };
-
-// Back-compat export name (older smoke scripts); keep until next major cleanup.
-export const runAwsApiGatewayToolsCli = runAwsSecretsManagerToolsCli;

@@ -15,18 +15,45 @@ export const apiGatewayPluginConfigSchema = z.object({
   stageName: z.string().optional(),
   /** Default template extension used by pull-keys when target file is missing. */
   templateExtension: z.string().optional(),
+  /**
+   * Defaults for `aws api-gateway flush-cache`.
+   */
   flushCache: z
     .object({
+      /**
+       * Default REST API id (supports $VAR expansion at action time).
+       */
       apiId: z.string().optional(),
+      /**
+       * Default REST API name (supports $VAR expansion at action time).
+       */
       apiName: z.string().optional(),
+      /**
+       * Default stage name (supports $VAR expansion at action time).
+       */
       stageName: z.string().optional(),
     })
     .optional(),
+  /**
+   * Defaults for `aws api-gateway pull-keys`.
+   */
   pullKeys: z
     .object({
+      /**
+       * Default list of API key names (space-delimited on CLI; config is an array).
+       */
       keyNames: z.array(z.string()).optional(),
+      /**
+       * Default target dotenv variable name to write.
+       */
       variableName: z.string().optional(),
+      /**
+       * Default delimiter used to join key values (default is ", " when omitted).
+       */
       delimiter: z.string().optional(),
+      /**
+       * Default destination selector `(global|env):(public|private)`, e.g. `env:private`.
+       */
       to: z.string().optional(),
     })
     .optional(),

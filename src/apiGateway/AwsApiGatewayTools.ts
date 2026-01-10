@@ -53,6 +53,13 @@ export type AwsApiGatewayToolsOptions = {
   xray?: XrayMode;
 };
 
+export type FlushStageCacheByNameResult = {
+  /**
+   * The resolved REST API id used for the flush operation.
+   */
+  apiId: string;
+};
+
 /**
  * Tools-style AWS API Gateway wrapper (REST APIs).
  *
@@ -206,7 +213,7 @@ export class AwsApiGatewayTools implements ApiGatewayPort {
   async flushStageCacheByName(opts: {
     apiName: string;
     stageName: string;
-  }): Promise<{ apiId: string }> {
+  }): Promise<FlushStageCacheByNameResult> {
     const { apiName, stageName } = opts;
     if (!apiName) throw new Error('apiName is required');
     if (!stageName) throw new Error('stageName is required');
