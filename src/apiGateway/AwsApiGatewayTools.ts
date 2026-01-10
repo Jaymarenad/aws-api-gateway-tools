@@ -3,7 +3,7 @@
  * - Provide a public tools-style wrapper `AwsApiGatewayTools`.
  * - Consumers construct `new AwsApiGatewayTools(...)` and use convenience methods,
  *   with an escape hatch via `tools.client`.
- * - Support optional AWS X-Ray capture via @karmaniverous/aws-xray-tools (guarded).
+ * - Support optional AWS X-Ray capture via \@karmaniverous/aws-xray-tools (guarded).
  * - Enforce the get-dotenv minimal Logger contract (debug/info/warn/error).
  * - Provide convenience methods that back the api-gateway plugin:
  *   - flush stage cache by API id or by API name
@@ -223,7 +223,7 @@ export class AwsApiGatewayTools implements ApiGatewayPort {
     keyNames: string[];
   }): Promise<string[]> {
     const { keyNames } = opts;
-    if (!keyNames?.length) throw new Error('keyNames is required');
+    if (!keyNames.length) throw new Error('keyNames is required');
     return await getApiKeyValuesByNames(this, keyNames);
   }
 }

@@ -11,10 +11,10 @@ import type {
   PluginWithInstanceHelpers,
 } from '@karmaniverous/get-dotenv/cliHost';
 
-import type { SecretsPluginConfig } from '../secretsPluginConfig';
+import type { ApiGatewayPluginConfig } from '../apiGatewayPluginConfig';
 
-export type SecretsPluginCli = GetDotenvCliPublic<GetDotenvOptions>;
-export type SecretsPluginApi = PluginWithInstanceHelpers<
+export type ApiGatewayPluginCli = GetDotenvCliPublic<GetDotenvOptions>;
+export type ApiGatewayPluginApi = PluginWithInstanceHelpers<
   GetDotenvOptions,
-  SecretsPluginConfig
+  ApiGatewayPluginConfig
 >;

@@ -1,155 +1,124 @@
 /**
  * Requirements addressed:
- * - Provide `aws secrets push`.
- * - `push` selects payload keys using effective provenance entry only and
- *   repeatable `--from <selector>` selectors (default: file:env:private).
- * - Enforce AWS Secrets Manager SecretString size limit (65,536 bytes).
- * - Dynamic options must be registered on the command to drive typing + help.
+ * - Provide `aws api-gateway flush-cache`.
+ * - Support:
+ *   - `--api-id <string>` (fallback: `$API_ID`)
+ *   - `--api-name <string>` (fallback: `$API_NAME`)
+ *   - `--stage-name <string>` (fallback: `$STAGE_NAME`)
+ * - `--api-id` conflicts with `--api-name`.
+ * - Expand flag values at action time against `{ ...process.env, ...ctx.dotenv }` (ctx wins).
+ * - Region is sourced from aws plugin context.
+ * - Keep adapter thin: delegate AWS operations to AwsApiGatewayTools.
  */
 
 import {
-  applyIncludeExclude,
-  assertByteLimit,
   buildSpawnEnv,
   dotenvExpand,
   silentLogger,
 } from '@karmaniverous/get-dotenv';
-import {
-  describeConfigKeyListDefaults,
-  describeDefault,
-  readMergedOptions,
-} from '@karmaniverous/get-dotenv/cliHost';
+import { readMergedOptions } from '@karmaniverous/get-dotenv/cliHost';
 import { getAwsRegion } from '@karmaniverous/get-dotenv/plugins/aws';
 
-import { AwsSecretsManagerTools } from '../../secretsManager/AwsSecretsManagerTools';
-import {
-  parseFromSelector,
-  selectEnvByProvenance,
-} from '../provenanceSelectors';
-import { resolveIncludeExclude } from '../secretsPluginConfig';
-import type { SecretsPluginApi, SecretsPluginCli } from './types';
+import { AwsApiGatewayTools } from '../../apiGateway/AwsApiGatewayTools';
+import type { ApiGatewayPluginApi, ApiGatewayPluginCli } from './types';
 
-export const registerPushCommand = ({
+export const registerFlushCacheCommand = ({
   cli,
   plugin,
 }: {
-  cli: SecretsPluginCli;
-  plugin: SecretsPluginApi;
+  cli: ApiGatewayPluginCli;
+  plugin: ApiGatewayPluginApi;
 }): void => {
-  const push = cli
-    .ns('push')
-    .description(
-      'Create or update a Secrets Manager secret from selected loaded keys.',
-    );
+  const flush = cli
+    .ns('flush-cache')
+    .description('Flush a REST API stage cache.');
 
-  push
+  flush
+    .addOption(
+      plugin
+        .createPluginDynamicOption(
+          flush,
+          '--api-id <string>',
+          (_helpCfg, cfg) => {
+            const def = cfg.flushCache?.apiId ?? cfg.apiId ?? '$API_ID';
+            return `REST API id (supports $VAR expansion) (default: ${def})`;
+          },
+        )
+        .conflicts('apiName'),
+    )
+    .addOption(
+      plugin
+        .createPluginDynamicOption(
+          flush,
+          '--api-name <string>',
+          (_helpCfg, cfg) => {
+            const def = cfg.flushCache?.apiName ?? cfg.apiName ?? '$API_NAME';
+            return `REST API name (supports $VAR expansion) (default: ${def})`;
+          },
+        )
+        .conflicts('apiId'),
+    )
     .addOption(
       plugin.createPluginDynamicOption(
-        push,
-        '-s, --secret-name <string>',
-        (_helpCfg, pluginCfg) =>
-          `secret name (supports $VAR expansion) (default: ${pluginCfg.secretName ?? '$STACK_NAME'})`,
+        flush,
+        '--stage-name <string>',
+        (_helpCfg, cfg) => {
+          const def =
+            cfg.flushCache?.stageName ?? cfg.stageName ?? '$STAGE_NAME';
+          return `stage name (supports $VAR expansion) (default: ${def})`;
+        },
       ),
-    )
-    // Repeatable: `--from <selector>` may be specified multiple times.
-    .addOption(
-      plugin
-        .createPluginDynamicOption(
-          push,
-          '--from <selector>',
-          (_helpCfg, pluginCfg) => {
-            const def = pluginCfg.push?.from?.length
-              ? pluginCfg.push.from
-              : ['file:env:private'];
-            return `provenance selectors for secret payload keys (default: ${describeDefault(def)})`;
-          },
-        )
-        .argParser((value, previous: string[] | undefined) => [
-          ...(previous ?? []),
-          value,
-        ])
-        .default(Array<string>()),
-    )
-    .addOption(
-      plugin
-        .createPluginDynamicOption(
-          push,
-          '-e, --exclude <strings...>',
-          (_helpCfg, pluginCfg) => {
-            const { excludeDefault } = describeConfigKeyListDefaults({
-              cfgInclude: pluginCfg.push?.include,
-              cfgExclude: pluginCfg.push?.exclude,
-            });
-            return `space-delimited list of environment variables to exclude (default: ${excludeDefault})`;
-          },
-        )
-        .conflicts('include'),
-    )
-    .addOption(
-      plugin
-        .createPluginDynamicOption(
-          push,
-          '-i, --include <strings...>',
-          (_helpCfg, pluginCfg) => {
-            const { includeDefault } = describeConfigKeyListDefaults({
-              cfgInclude: pluginCfg.push?.include,
-              cfgExclude: pluginCfg.push?.exclude,
-            });
-            return `space-delimited list of environment variables to include (default: ${includeDefault})`;
-          },
-        )
-        .conflicts('exclude'),
     )
     .action(async (opts) => {
       const ctx = cli.getCtx();
-      const cfg = plugin.readConfig(push);
+      const cfg = plugin.readConfig(flush);
 
-      const bag = readMergedOptions(push);
+      const bag = readMergedOptions(flush);
       const sdkLogger = bag.debug ? console : silentLogger;
 
-      const logger = console;
-
-      const fromRaw = opts.from?.length
-        ? opts.from
-        : cfg.push?.from?.length
-          ? cfg.push.from
-          : ['file:env:private'];
-      const fromSelectors = fromRaw.map(parseFromSelector);
-
-      const { include, exclude } = resolveIncludeExclude({
-        cliInclude: opts.include,
-        cliExclude: opts.exclude,
-        cfgInclude: cfg.push?.include,
-        cfgExclude: cfg.push?.exclude,
-      });
-
       const envRef = buildSpawnEnv(process.env, ctx.dotenv);
-      const secretNameRaw = opts.secretName ?? cfg.secretName ?? '$STACK_NAME';
-      const secretId = dotenvExpand(secretNameRaw, envRef);
-      if (!secretId) throw new Error('secret-name is required.');
 
-      const selected = selectEnvByProvenance(
-        ctx.dotenv,
-        ctx.dotenvProvenance,
-        fromSelectors,
-      );
-      const secrets = applyIncludeExclude(selected, { include, exclude });
-      assertByteLimit(
-        secrets,
-        65_536,
-        (v, l) =>
-          `SecretString size ${String(v)} bytes exceeds ${String(l)} bytes; narrow selection with --from/--include/--exclude.`,
-      );
+      const stageNameRaw =
+        opts.stageName ??
+        cfg.flushCache?.stageName ??
+        cfg.stageName ??
+        '$STAGE_NAME';
+      const stageName = dotenvExpand(stageNameRaw, envRef);
+      if (!stageName) throw new Error('stage-name is required.');
 
       const region = getAwsRegion(ctx);
-      const tools = new AwsSecretsManagerTools({
+      const tools = new AwsApiGatewayTools({
         clientConfig: region
           ? { region, logger: sdkLogger }
           : { logger: sdkLogger },
       });
 
-      logger.info(`Pushing secret '${secretId}' to AWS Secrets Manager...`);
-      const mode = await tools.upsertEnvSecret({ secretId, value: secrets });
-      logger.info(mode === 'created' ? 'Created.' : 'Updated.');
+      // Prefer api-id if it resolves; otherwise fall back to api-name.
+      const apiIdRaw =
+        opts.apiId ?? cfg.flushCache?.apiId ?? cfg.apiId ?? '$API_ID';
+      const apiId = dotenvExpand(apiIdRaw, envRef);
+
+      if (apiId) {
+        console.info(`Flushing API Gateway cache for apiId '${apiId}'...`);
+        await tools.flushStageCache({ restApiId: apiId, stageName });
+        console.info('Done.');
+        return;
+      }
+
+      const apiNameRaw =
+        opts.apiName ?? cfg.flushCache?.apiName ?? cfg.apiName ?? '$API_NAME';
+      const apiName = dotenvExpand(apiNameRaw, envRef);
+      if (!apiName) {
+        throw new Error(
+          'api-id or api-name is required (via flags or env/config).',
+        );
+      }
+
+      console.info(`Flushing API Gateway cache for '${apiName}'...`);
+      const { apiId: resolved } = await tools.flushStageCacheByName({
+        apiName,
+        stageName,
+      });
+      console.info(`Done. (apiId=${resolved})`);
     });
 };

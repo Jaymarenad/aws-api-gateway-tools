@@ -1,36 +1,31 @@
 /**
  * Requirements addressed:
- * - Provide get-dotenv plugin mounted as `aws secrets` with commands:
- *   - `aws secrets pull`
- *   - `aws secrets push`
- *   - `aws secrets delete`
+ * - Provide get-dotenv plugin mounted as `aws api-gateway` with commands:
+ *   - `aws api-gateway flush-cache`
+ *   - `aws api-gateway pull-keys`
  * - Keep the plugin adapter thin: command registration is decomposed into
  *   dedicated modules; core behavior lives outside this file.
- * - For config-backed plugin options, register dynamic options on the command
- *   so help reflects composed defaults and option parsing is typed.
  */
 
 import { definePlugin } from '@karmaniverous/get-dotenv/cliHost';
 
-import { registerDeleteCommand } from './commands/registerDeleteCommand';
-import { registerPullCommand } from './commands/registerPullCommand';
-import { registerPushCommand } from './commands/registerPushCommand';
-import { secretsPluginConfigSchema } from './secretsPluginConfig';
+import { apiGatewayPluginConfigSchema } from './apiGatewayPluginConfig';
+import { registerFlushCacheCommand } from './commands/registerFlushCacheCommand';
+import { registerPullKeysCommand } from './commands/registerPullKeysCommand';
 
 /**
- * get-dotenv plugin that provides `aws secrets pull|push|delete`.
+ * get-dotenv plugin that provides `aws api-gateway flush-cache|pull-keys`.
  *
- * Intended usage: mount under `awsPlugin().use(secretsPlugin())`.
+ * Intended usage: mount under `awsPlugin().use(apiGatewayPlugin())`.
  */
-export const secretsPlugin = () => {
+export const apiGatewayPlugin = () => {
   const plugin = definePlugin({
-    ns: 'secrets',
-    configSchema: secretsPluginConfigSchema,
+    ns: 'api-gateway',
+    configSchema: apiGatewayPluginConfigSchema,
     setup(cli) {
-      cli.description('AWS Secrets Manager helpers (env-map secrets).');
-      registerPullCommand({ cli, plugin });
-      registerPushCommand({ cli, plugin });
-      registerDeleteCommand({ cli, plugin });
+      cli.description('AWS API Gateway helpers (REST APIs).');
+      registerFlushCacheCommand({ cli, plugin });
+      registerPullKeysCommand({ cli, plugin });
     },
   });
 

@@ -1,14 +1,14 @@
 /**
  * Requirements addressed:
- * - Provide `aws secrets pull`.
- * - For config-backed plugin options, use plugin dynamic options to show
- *   composed defaults in help output.
- * - Use get-dotenv precedence semantics for deterministic dotenv editing.
- * - Replace scope/privacy flags with `--to <scope>:<privacy>`.
+ * - Provide `aws api-gateway pull-keys`.
+ * - Accept `--key-names <string...>` (space-delimited list).
+ * - Missing keys fail the whole command.
+ * - Join values by `--delimiter` (default: ", ").
+ * - Write result to a single dotenv variable (`--variable-name`, default: API_KEYS)
+ *   in the target selected by `--to <scope:privacy>` (default env:private).
  */
 
 import {
-  applyIncludeExclude,
   buildSpawnEnv,
   dotenvExpand,
   editDotenvFile,
@@ -16,37 +16,65 @@ import {
   requireString,
   silentLogger,
 } from '@karmaniverous/get-dotenv';
-import {
-  describeConfigKeyListDefaults,
-  readMergedOptions,
-} from '@karmaniverous/get-dotenv/cliHost';
+import { readMergedOptions } from '@karmaniverous/get-dotenv/cliHost';
 import { getAwsRegion } from '@karmaniverous/get-dotenv/plugins/aws';
 
-import { AwsSecretsManagerTools } from '../../secretsManager/AwsSecretsManagerTools';
-import { parseToSelector } from '../provenanceSelectors';
-import { resolveIncludeExclude } from '../secretsPluginConfig';
-import type { SecretsPluginApi, SecretsPluginCli } from './types';
+import { AwsApiGatewayTools } from '../../apiGateway/AwsApiGatewayTools';
+import { parseToSelector } from '../dotenvSelectors';
+import type { ApiGatewayPluginApi, ApiGatewayPluginCli } from './types';
 
-export const registerPullCommand = ({
+export const registerPullKeysCommand = ({
   cli,
   plugin,
 }: {
-  cli: SecretsPluginCli;
-  plugin: SecretsPluginApi;
+  cli: ApiGatewayPluginCli;
+  plugin: ApiGatewayPluginApi;
 }): void => {
   const pull = cli
-    .ns('pull')
+    .ns('pull-keys')
     .description(
-      'Update local dotenv from a Secrets Manager secret (env-map).',
+      'Write API key values into a dotenv variable (delimiter-joined).',
     );
 
   pull
     .addOption(
       plugin.createPluginDynamicOption(
         pull,
-        '-s, --secret-name <string>',
+        '--key-names <strings...>',
+        (_helpCfg, pluginCfg) => {
+          const def = pluginCfg.pullKeys?.keyNames?.length
+            ? pluginCfg.pullKeys.keyNames.join(' ')
+            : 'none';
+          return `space-delimited list of API key names (supports $VAR expansion per name) (default: ${def})`;
+        },
+      ),
+    )
+    .addOption(
+      plugin.createPluginDynamicOption(
+        pull,
+        '--variable-name <string>',
         (_helpCfg, pluginCfg) =>
-          `secret name (supports $VAR expansion) (default: ${pluginCfg.secretName ?? '$STACK_NAME'})`,
+          `dotenv variable to write (default: ${pluginCfg.pullKeys?.variableName ?? 'API_KEYS'})`,
+      ),
+    )
+    .addOption(
+      plugin.createPluginDynamicOption(
+        pull,
+        '--delimiter <string>',
+        (_helpCfg, pluginCfg) => {
+          const def = pluginCfg.pullKeys?.delimiter ?? ', ';
+          return `delimiter for joining key values (default: ${def})`;
+        },
+      ),
+    )
+    .addOption(
+      plugin.createPluginDynamicOption(
+        pull,
+        '--to <scope:privacy>',
+        (_helpCfg, pluginCfg) => {
+          const def = pluginCfg.pullKeys?.to ?? 'env:private';
+          return `destination dotenv selector (global|env):(public|private) (default: ${def})`;
+        },
       ),
     )
     .addOption(
@@ -58,46 +86,6 @@ export const registerPullCommand = ({
           return `dotenv template extension used when target file is missing (default: ${def})`;
         },
       ),
-    )
-    .addOption(
-      plugin.createPluginDynamicOption(
-        pull,
-        '--to <scope:privacy>',
-        (_helpCfg, pluginCfg) => {
-          const def = pluginCfg.pull?.to ?? 'env:private';
-          return `destination dotenv selector (global|env):(public|private) (default: ${def})`;
-        },
-      ),
-    )
-    .addOption(
-      plugin
-        .createPluginDynamicOption(
-          pull,
-          '-e, --exclude <strings...>',
-          (_helpCfg, pluginCfg) => {
-            const { excludeDefault } = describeConfigKeyListDefaults({
-              cfgInclude: pluginCfg.pull?.include,
-              cfgExclude: pluginCfg.pull?.exclude,
-            });
-            return `space-delimited list of keys to exclude from the pulled secret (default: ${excludeDefault})`;
-          },
-        )
-        .conflicts('include'),
-    )
-    .addOption(
-      plugin
-        .createPluginDynamicOption(
-          pull,
-          '-i, --include <strings...>',
-          (_helpCfg, pluginCfg) => {
-            const { includeDefault } = describeConfigKeyListDefaults({
-              cfgInclude: pluginCfg.pull?.include,
-              cfgExclude: pluginCfg.pull?.exclude,
-            });
-            return `space-delimited list of keys to include from the pulled secret (default: ${includeDefault})`;
-          },
-        )
-        .conflicts('exclude'),
     )
     .action(async (opts, command) => {
       const logger = console;
@@ -111,35 +99,47 @@ export const registerPullCommand = ({
       const dotenvToken = rootOpts.dotenvToken ?? '.env';
       const privateToken = rootOpts.privateToken ?? 'local';
 
-      const toRaw = opts.to ?? cfg.pull?.to ?? 'env:private';
+      const toRaw = opts.to ?? cfg.pullKeys?.to ?? 'env:private';
       const to = parseToSelector(toRaw);
 
       const envRef = buildSpawnEnv(process.env, ctx.dotenv);
-      const secretNameRaw = opts.secretName ?? cfg.secretName ?? '$STACK_NAME';
-      const secretId = dotenvExpand(secretNameRaw, envRef);
-      if (!secretId) throw new Error('secret-name is required.');
+      const keyNamesRaw =
+        (Array.isArray(opts.keyNames) && opts.keyNames.length
+          ? opts.keyNames
+          : undefined) ??
+        cfg.pullKeys?.keyNames ??
+        [];
+      if (!keyNamesRaw.length) throw new Error('key-names is required.');
+
+      const keyNames = keyNamesRaw.map((raw) => {
+        const expanded = dotenvExpand(raw, envRef);
+        if (!expanded) {
+          throw new Error('key-names contains an empty value after expansion.');
+        }
+        return expanded;
+      });
+
+      const variableName =
+        opts.variableName ?? cfg.pullKeys?.variableName ?? 'API_KEYS';
+      const delimiter = opts.delimiter ?? cfg.pullKeys?.delimiter ?? ', ';
 
       const region = getAwsRegion(ctx);
-      const tools = new AwsSecretsManagerTools({
+      const tools = new AwsApiGatewayTools({
         clientConfig: region
           ? { region, logger: sdkLogger }
           : { logger: sdkLogger },
       });
 
-      logger.info(`Pulling secret '${secretId}' from AWS Secrets Manager...`);
-      const rawSecrets = await tools.readEnvSecret({ secretId });
-
-      const { include, exclude } = resolveIncludeExclude({
-        cliInclude: opts.include,
-        cliExclude: opts.exclude,
-        cfgInclude: cfg.pull?.include,
-        cfgExclude: cfg.pull?.exclude,
-      });
-      const secrets = applyIncludeExclude(rawSecrets, { include, exclude });
+      logger.info(
+        `Retrieving ${String(keyNames.length)} API key(s) from API Gateway...`,
+      );
+      const values = await tools.getApiKeyValuesByNames({ keyNames });
+      const joined = values.join(delimiter);
 
       const templateExtension =
         opts.templateExtension ?? cfg.templateExtension ?? 'template';
 
+      const updates = { [variableName]: joined };
       const editCommon = {
         paths,
         dotenvToken,
@@ -150,7 +150,7 @@ export const registerPullCommand = ({
 
       const res =
         to.scope === 'env'
-          ? await editDotenvFile(secrets, {
+          ? await editDotenvFile(updates, {
               ...editCommon,
               scope: 'env',
               env: requireString(
@@ -158,7 +158,7 @@ export const registerPullCommand = ({
                 'env is required (use --env or defaultEnv).',
               ),
             })
-          : await editDotenvFile(secrets, {
+          : await editDotenvFile(updates, {
               ...editCommon,
               scope: 'global',
             });

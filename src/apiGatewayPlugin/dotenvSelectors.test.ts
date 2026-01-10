@@ -5,7 +5,7 @@ import {
   parseFromSelector,
   parseToSelector,
   selectEnvByProvenance,
-} from './provenanceSelectors';
+} from './dotenvSelectors';
 
 describe('provenanceSelectors', () => {
   it('parses --from selectors (all enumerated kinds)', () => {
