@@ -188,12 +188,16 @@ export const makeSecretId = (): string => {
   return `aws-api-gateway-tools/smoke/${String(Date.now())}-${suffix}`;
 };
 
-export const SMOKE_AWS_SECRETS_FIXTURES_DIR_REL = 'smoke/fixtures/aws-secrets';
+export const shouldRunApiGatewaySmoke = (smokeEnv: ProcessEnv): boolean =>
+  smokeEnv.SMOKE_APIGW === '1';
+
+export const SMOKE_AWS_API_GATEWAY_FIXTURES_DIR_REL =
+  'smoke/fixtures/aws-api-gateway';
 export const SMOKE_OVERLAY_CONFIG_FIXTURE_REL =
   'smoke/fixtures/getdotenv.config.overlay.json';
 export const SMOKE_TEMPLATE_SENTINEL = '# smoke template comment: keep me';
 
-export const getAwsSecretsFixturePaths = ({
+export const getAwsApiGatewayFixturePaths = ({
   repoRoot,
 }: {
   repoRoot: string;
@@ -202,7 +206,7 @@ export const getAwsSecretsFixturePaths = ({
   templateAbs: string;
   localAbs: string;
 } => {
-  const dirAbs = path.resolve(repoRoot, SMOKE_AWS_SECRETS_FIXTURES_DIR_REL);
+  const dirAbs = path.resolve(repoRoot, SMOKE_AWS_API_GATEWAY_FIXTURES_DIR_REL);
   const envAbs = path.join(dirAbs, '.env');
   const templateAbs = path.join(dirAbs, '.env.local.template');
   const localAbs = path.join(dirAbs, '.env.local');
@@ -234,7 +238,7 @@ export const assertSmokeFixturesPresent = async ({
 }: {
   repoRoot: string;
 }): Promise<void> => {
-  const { envAbs, templateAbs } = getAwsSecretsFixturePaths({ repoRoot });
+  const { envAbs, templateAbs } = getAwsApiGatewayFixturePaths({ repoRoot });
   assert(await fileExists(envAbs), `Missing smoke fixture: ${envAbs}`);
   assert(
     await fileExists(templateAbs),
@@ -247,6 +251,32 @@ export const assertSmokeFixturesPresent = async ({
     SMOKE_TEMPLATE_SENTINEL,
     'Smoke template missing sentinel comment; update SMOKE_TEMPLATE_SENTINEL or template content.',
   );
+};
+
+export const requireEnv = (env: ProcessEnv, key: string): string => {
+  const v = env[key];
+  if (typeof v === 'string' && v.length) return v;
+  throw new Error(`Missing required env var: ${key}`);
+};
+
+export const getFlushCacheSelector = (
+  env: ProcessEnv,
+): { apiId?: string; apiName?: string; stageName: string } => {
+  const stageName = requireEnv(env, 'STAGE_NAME');
+  const apiId = env.API_ID;
+  const apiName = env.API_NAME;
+  if (!apiId && !apiName) {
+    throw new Error('Missing API_ID and API_NAME (need at least one).');
+  }
+  return { apiId, apiName, stageName };
+};
+
+export const getApiKeyNames = (env: ProcessEnv): string[] => {
+  const raw = requireEnv(env, 'API_KEY_NAMES');
+  return raw
+    .split(/\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 };
 
 export const expectCommandOk = (res: RunResult, label: string): void => {
@@ -280,3 +310,6 @@ export const logCommandOk = (res: RunResult, label: string): void => {
   if (res.stdout.trim()) console.log(`--- stdout ---\n${clip(res.stdout)}`);
   if (res.stderr.trim()) console.log(`--- stderr ---\n${clip(res.stderr)}`);
 };
+
+// Back-compat export name (older smoke scripts); keep until next major cleanup.
+export const runAwsApiGatewayToolsCli = runAwsSecretsManagerToolsCli;

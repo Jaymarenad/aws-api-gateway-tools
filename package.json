@@ -13,7 +13,7 @@
     "url": "https://github.com/karmaniverous/aws-api-gateway-tools/issues"
   },
   "dependencies": {
-    "@aws-sdk/client-secrets-manager": "^3.965.0",
+    "@aws-sdk/client-api-gateway": "^3.965.0",
     "@karmaniverous/aws-xray-tools": "^0.2.0",
     "@karmaniverous/get-dotenv": "^7.0.1"
   },
@@ -22,7 +22,7 @@
       "optional": true
     }
   },
-  "description": "Tools and get-dotenv plugin for AWS Secrets Manager env-map secrets.",
+  "description": "Tools and get-dotenv plugin for AWS API Gateway (REST APIs, stage cache, API keys).",
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@rollup/plugin-alias": "^6.0.0",
@@ -75,9 +75,10 @@
   "keywords": [
     "typescript",
     "aws",
-    "secrets",
-    "secrets-manager",
-    "aws-secrets-manager",
+    "api-gateway",
+    "apigateway",
+    "api-keys",
+    "cache",
     "dotenv",
     "getdotenv",
     "cli",
@@ -134,8 +135,8 @@
     "lint:fix": "eslint --fix .",
     "release": "getdotenv -R cmd release-it",
     "release:pre": "npm run release -- --no-git.requireBranch --github.prerelease --preRelease",
-    "smoke:flags": "tsx ./smoke/aws-secrets-cli-flags.ts",
-    "smoke:overlay": "tsx ./smoke/aws-secrets-config-overlay.ts",
+    "smoke:flags": "tsx ./smoke/aws-api-gateway-cli-flags.ts",
+    "smoke:overlay": "tsx ./smoke/aws-api-gateway-config-overlay.ts",
     "test": "vitest run",
     "typecheck": "tsc"
   },

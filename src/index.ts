@@ -6,12 +6,12 @@
 
 /**
  * Requirements addressed:
- * - Export a public `AwsSecretsManagerTools`.
- * - Export the get-dotenv `secretsPlugin` for mounting under `aws`.
+ * - Export a public `AwsApiGatewayTools`.
+ * - Export the get-dotenv `apiGatewayPlugin` for mounting under `aws`.
  */
 
 export {
-  AwsSecretsManagerTools,
-  type AwsSecretsManagerToolsOptions,
-} from './secretsManager/AwsSecretsManagerTools';
-export { secretsPlugin } from './secretsPlugin/secretsPlugin';
+  AwsApiGatewayTools,
+  type AwsApiGatewayToolsOptions,
+} from './apiGateway/AwsApiGatewayTools';
+export { apiGatewayPlugin } from './apiGatewayPlugin/apiGatewayPlugin';

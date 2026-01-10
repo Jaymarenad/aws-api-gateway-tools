@@ -23,7 +23,7 @@
   "plugin": ["typedoc-plugin-mdn-links", "typedoc-plugin-replace-text"],
   "projectDocuments": [
     "./guides/aws-api-gateway-tools.md",
-    "./guides/secrets-plugin.md",
+    "./guides/api-gateway-plugin.md",
     "./CHANGELOG.md"
   ],
   "replaceText": {

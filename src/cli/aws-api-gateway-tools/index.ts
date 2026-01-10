@@ -2,7 +2,7 @@
  * Requirements addressed:
  * - Replace sample CLI with a get-dotenv CLI alias `aws-api-gateway-tools`.
  * - Duplicate default get-dotenv CLI composition, but omit awsWhoamiPlugin.
- * - Mount secrets plugin under aws: `awsPlugin().use(secretsPlugin())`.
+ * - Mount api-gateway plugin under aws: `awsPlugin().use(apiGatewayPlugin())`.
  */
 
 import { createCli } from '@karmaniverous/get-dotenv/cli';
@@ -13,7 +13,7 @@ import {
   initPlugin,
 } from '@karmaniverous/get-dotenv/plugins';
 
-import { secretsPlugin } from '../../secretsPlugin/secretsPlugin';
+import { apiGatewayPlugin } from '../../apiGatewayPlugin/apiGatewayPlugin';
 
 await createCli({
   alias: 'aws-api-gateway-tools',
@@ -23,6 +23,6 @@ await createCli({
         cmdPlugin({ asDefault: true, optionAlias: '-c, --cmd <command...>' }),
       )
       .use(batchPlugin())
-      .use(awsPlugin().use(secretsPlugin()))
+      .use(awsPlugin().use(apiGatewayPlugin()))
       .use(initPlugin()),
 })();

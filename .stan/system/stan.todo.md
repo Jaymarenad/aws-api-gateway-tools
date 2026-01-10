@@ -2,9 +2,9 @@
 
 ## Next up
 
-- Run `npm run lint`, `npm run test`, `npm run typecheck`, and `npm run build` to validate the AwsSecretsManagerTools constructor refactor (sync X-Ray capture).
-- Run `npm run docs -- --emit none` to confirm the new TypeDoc guides render cleanly.
-- Consider publishing a first release once documentation is finalized.
+- Run `npm run lint`, `npm run test`, `npm run typecheck`, and `npm run build` to validate the API Gateway conversion.
+- Run `npm run docs -- --emit none` to confirm the updated TypeDoc guides render cleanly.
+- Smoke (opt-in): set `SMOKE_APIGW=1` plus `API_ID`/`API_NAME`, `STAGE_NAME`, `API_KEY_NAMES`, then run `npm run smoke:flags` and `npm run smoke:overlay`.
 
 ## Completed (recent)
 
@@ -48,4 +48,4 @@
 - Use dotenvExpand for --secret-name expansion in aws secrets commands.
 - Refactor AwsSecretsManagerTools to use get-dotenv Logger.
 - Refactor X-Ray capture to use @karmaniverous/aws-xray-tools and remove redundant local implementation; fix STAN imports to use node_modules sources.
-- Refactored AwsSecretsManagerTools to use a public constructor (removed async init) now that aws-xray-tools capture is synchronous.- Documentation sync pass: align constructor/X-Ray wording and correct `ProcessEnv` import guidance.
+- Refactored AwsSecretsManagerTools to use a public constructor (removed async init) now that aws-xray-tools capture is synchronous.- Documentation sync pass: align constructor/X-Ray wording and correct `ProcessEnv` import guidance.- Converted repo from Secrets Manager to API Gateway tools/plugin; updated docs and smoke tests accordingly.
